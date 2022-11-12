@@ -1,0 +1,8 @@
+lps22hb.c:17:9:lps22hb_read_byte	32	static
+lps22hb.c:24:6:lps22hb_write_byte	16	static
+lps22hb.c:30:6:lps22hb_readArray	24	static
+lps22hb.c:35:7:lps22hb_get_temp	16	static
+lps22hb.c:43:7:lps22hb_get_press	16	static
+lps22hb.c:51:7:lps22hb_get_altitude	16	static
+lps22hb.c:57:9:lps22hb_init	16	static
+lps22hb.c:94:8:generalPower	24	static

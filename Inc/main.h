@@ -39,7 +39,8 @@ extern "C" {
 #include "stm32f3xx_ll_pwr.h"
 #include "stm32f3xx_ll_dma.h"
 #include "stm32f3xx_ll_gpio.h"
-#include "stm32f3xx_ll_usart.h"
+#include "stm32f3xx_ll_tim.h"
+
 
 #if defined(USE_FULL_ASSERT)
 #include "stm32_assert.h"
@@ -69,7 +70,8 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+//uint8_t checkButtonState(GPIO_TypeDef* PORT, uint8_t PIN, uint8_t edge, uint8_t samples_window, uint8_t samples_required);
+void changeMode(char str[4][11], uint8_t mode);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -86,7 +88,7 @@ void Error_Handler(void);
                                                                  0 bit  for subpriority */
 #endif
 /* USER CODE BEGIN Private defines */
-
+#define SIZE_DISPLAY 4
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

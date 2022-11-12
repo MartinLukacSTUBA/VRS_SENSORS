@@ -20,51 +20,78 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "assignment.h"
 #include "i2c.h"
 #include "gpio.h"
-#include "usart.h"
 #include "lis3mdltr.h"
 #include "lsm6ds0.h"
-#include "stdio.h"
-#include "string.h"
-#include "dma.h"
+#include "lps22hb.h"
+#include "tim.h"
+#include "display.h"
+#include "hts221.h"
+#include <stdio.h>
+#include <string.h>
 
-#define CHAR_BUFF_SIZE	30
-
-uint8_t temp = 0;
-float mag[3], acc[3];
-char formated_text[30], value_x[10], value_y[10], value_z[10];
+uint8_t mode = 0;
 
 void SystemClock_Config(void);
 
 
+float press, alt, temp, humidity;
+
 int main(void)
 {
+  char str[4][11];
   LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_SYSCFG);
   LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_PWR);
 
-  NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
+  NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_0);
+
 
   SystemClock_Config();
 
+
   MX_GPIO_Init();
+
+  setSegments();
+  setDigits();
+
+  LL_mDelay(2000);
+
+  resetDigits();
+  resetSegments();
+
   MX_I2C1_Init();
-  MX_DMA_Init();
-  MX_USART2_UART_Init();
+
 
   lsm6ds0_init();
+  lps22hb_init();
+  hts221_init();
+
+  for(int i = 0; i<4; i++){
+	  changeMode(str, i);
+  }
+  changeDisplayString(str[mode],strlen(str[mode]));
+
+  MX_TIM2_Init();
+
+
 
   while (1)
   {
 	  //os			   x      y        z
-	  lsm6ds0_get_acc(acc, (acc+1), (acc+2));
-	  memset(formated_text, '\0', sizeof(formated_text));
-	  sprintf(formated_text, "%0.4f,%0.4f,%0.4f\r", acc[0], acc[1], acc[2]);
-	  USART2_PutBuffer((uint8_t*)formated_text, strlen(formated_text));
-	  LL_mDelay(10);
+//	  lsm6ds0_get_acc(acc, (acc+1), (acc+2));
+
+//	humidity = hts221_get_humidity();
+//	press = lps22hb_get_press();
+//  temp = lps22hb_get_temp();
+//	alt = lps22hb_get_altitude();
+	changeMode(str, mode);
+	changeDisplayString(str[mode],strlen(str[mode]));
+	LL_mDelay(500);
+
   }
 }
-
 
 /**
   * @brief System Clock Configuration
@@ -103,6 +130,61 @@ void SystemClock_Config(void)
 }
 
 
+uint8_t checkButtonState(GPIO_TypeDef* PORT, uint8_t PIN, uint8_t edge, uint8_t samples_window, uint8_t samples_required)
+{
+	int counter = 0;
+
+	for(int i = 0; i < samples_window; i++){
+		if(LL_GPIO_IsInputPinSet(PORT, GPIO_BSRR_BS_3) == edge){
+			counter += 1;
+		}else{
+			counter = 0;
+		}
+
+		if(counter >= samples_required){
+			return 1;
+		}
+
+		LL_mDelay(1);
+	}
+
+	return 0;
+}
+
+void changeMode(char str[4][11], uint8_t mode)
+{
+	float tmp;
+
+	switch(mode)
+	{
+		case 0: // teplota
+			tmp = lps22hb_get_temp();
+			if(tmp >= 100){
+				tmp = 99.9;
+			}
+			if(tmp <= -100){
+				tmp = -99.9;
+			}
+			if(tmp >= 0){
+				sprintf(str[0], "teplota [°C]: TEMP_%04.1f",tmp);
+			}else{
+				sprintf(str[0], "teplota [°C]: TEMP_%05.1f",tmp);
+
+			}
+			break;
+		case 1: // rel. vlhkost
+			sprintf(str[1], "rel. vlhkosť [%]: HUM_%02d",(int)(hts221_get_humidity()*100));
+			break;
+		case 2: // tlak
+			sprintf(str[2], "tlak vzduchu [hPa]: BAR_%06.1f",lps22hb_get_press());
+			break;
+		case 3: // nadmorska vyska
+			sprintf(str[3], "relatívna výška od zeme [m]: ALT_%06.1f",lps22hb_get_altitude());
+			break;
+	}
+}
+
+
 /**
   * @brief  This function is executed in case of error occurrence.
   * @retval None
@@ -113,6 +195,24 @@ void Error_Handler(void)
   /* User can add his own implementation to report the HAL error return state */
 
   /* USER CODE END Error_Handler_Debug */
+}
+
+void EXTI3_IRQHandler(void)
+{
+	if(checkButtonState(GPIO_PORT_BUTTON,
+						GPIO_PIN_BUTTON,
+						BUTTON_EXTI_TRIGGER,
+						BUTTON_EXTI_SAMPLES_WINDOW,
+						BUTTON_EXTI_SAMPLES_REQUIRED))
+	{
+		mode++;
+		if(mode > 3) mode = 0;
+		startNewStr();
+	}
+	if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_3) != RESET)
+	  {
+	    LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_3);
+	  }
 }
 
 #ifdef  USE_FULL_ASSERT
